@@ -25,10 +25,6 @@ namespace Scenes
 		/// </summary>
 		private Func<T> _returnT;
 		/// <summary>
-		/// 刷新清理时间 负数不清理
-		/// </summary>
-		public float RefreshTime = -1;
-		/// <summary>
 		/// 默认保持池子内数量 负数不保持
 		/// </summary>
 		public int HoldObject = -1;
@@ -41,7 +37,7 @@ namespace Scenes
 		/// <param name="refreshTime"></param> 刷新时间
 		public ObjectPool(Func<T> returnT)
 		{
-//			_returnT = returnT;
+			_returnT = returnT;
 //			initSize = initSize < 0 ? 0 : initSize;
 			_unUseList = new List<ObjectPoolContainer<T>>();
 			_userDict = new Dictionary<T, ObjectPoolContainer<T>>();
@@ -114,14 +110,5 @@ namespace Scenes
 				Debug.LogWarning("这池子中不存在包含 "+item +"的容器！");
 			}
 		}
-
-//		IEnumerator RefreshObjectPool(float refreshTime)
-//		{
-//			while (true)
-//			{
-//				
-//				yield return new WaitForSeconds(refreshTime);
-//			}
-//		}
 	}
 }

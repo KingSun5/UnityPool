@@ -1,5 +1,6 @@
 ﻿
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -11,12 +12,44 @@ namespace Scenes
 	/// author:Sun
 	/// des:对象池管理
 	/// </summary>
-	public class PoolManager
+	public class PoolManager:MonoBehaviour
 	{
+
+		private static PoolManager _instance = null;
+
+		public static PoolManager Instance
+		{
+			get
+			{
+				if (GameObject.Find("PoolManager")==null)
+				{
+					var pool = new GameObject("PoolManager").AddComponent<PoolManager>();
+					DontDestroyOnLoad(pool);
+				}
+				_instance = GameObject.Find("PoolManager").GetComponent<PoolManager>();
+				return _instance;
+			}
+		}
+
+		private void Awake()
+		{
+			StartCoroutine(ClearObjectPool());
+			_objectIdDict = new Dictionary<int, ObjectPool<GameObject>>();
+			_objectPools = new Dictionary<GameObject, ObjectPool<GameObject>>();
+		}
+
 		/// <summary>
-		/// 对象池
+		/// 刷新清理时间 负数不清理
 		/// </summary>
-		private Dictionary<GameObject, ObjectPool<GameObject>> _objectDict;
+		public float RefreshTime = 5;
+		/// <summary>
+		/// 生成物Id和对应池子
+		/// </summary>
+		private Dictionary<int, ObjectPool<GameObject>> _objectIdDict;
+		/// <summary>
+		/// 对象池子
+		/// </summary>
+		private Dictionary<GameObject, ObjectPool<GameObject>> _objectPools;
 
 		/// <summary>
 		/// 拿到目标对象
@@ -25,13 +58,12 @@ namespace Scenes
 		/// <returns></returns>
 		public GameObject Get(GameObject prefab)
 		{
-			var obj = new GameObject();
-			if (!_objectDict.ContainsKey(prefab))
+			GameObject obj = GetPool(prefab).Get();
+			if (!_objectIdDict.ContainsKey(obj.GetInstanceID()))
 			{
-				var pool = new ObjectPool<GameObject>(() => { return InstantiatePrefab(prefab); });
-				_objectDict.Add(prefab,pool);
+				_objectIdDict.Add(obj.GetInstanceID(),GetPool(prefab));				
 			}
-			obj = _objectDict[prefab].Get();
+			obj.gameObject.SetActive(true);
 			return obj;
 		}
 
@@ -41,13 +73,30 @@ namespace Scenes
 		/// <param name="prefab"></param>
 		/// <param name="position"></param>
 		/// <param name="rotation"></param>
+		/// <param name="root"></param>
 		/// <returns></returns>
-		public GameObject Get(GameObject prefab, Vector3 position, Quaternion rotation)
+		public GameObject Get(GameObject prefab, Vector3 position, Quaternion rotation,Transform root)
 		{
 			var obj = Get(prefab);
 			obj.transform.position = position;
 			obj.transform.rotation = rotation;
+			obj.transform.parent = root;
 			return obj;
+		}
+
+		/// <summary>
+		/// 返回物体对应的池子
+		/// </summary>
+		/// <param name="prefab"></param>
+		/// <returns></returns>
+		private ObjectPool<GameObject> GetPool(GameObject prefab)
+		{
+			if (!_objectPools.ContainsKey(prefab))
+			{
+				var pool = new ObjectPool<GameObject>(() => { return InstantiatePrefab(prefab); });
+				_objectPools.Add(prefab,pool);
+			}
+			return _objectPools[prefab];
 		}
 
 		/// <summary>
@@ -57,11 +106,12 @@ namespace Scenes
 		/// <exception cref="Exception"></exception>
 		public void Release(GameObject prefab)
 		{
-			if (!_objectDict.ContainsKey(prefab))
+			if (!_objectIdDict.ContainsKey(prefab.GetInstanceID()))
 			{
 				throw new Exception("不存在"+ prefab +"相关对象池");
 			}
-			_objectDict[prefab].Release(prefab);
+			prefab.gameObject.SetActive(false);
+			_objectIdDict[prefab.GetInstanceID()].Release(prefab);
 		}
 		
 		
@@ -74,6 +124,19 @@ namespace Scenes
 		{
 			var go = Object.Instantiate(prefab);
 			return go;
+		}
+
+		/// <summary>
+		/// 定时清理池子
+		/// </summary>
+		/// <returns></returns>
+		IEnumerator ClearObjectPool()
+		{
+			while (true)
+			{
+//				print(111);
+				yield return new WaitForSeconds(RefreshTime);
+			}
 		}
 
 	}
