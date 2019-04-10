@@ -15,11 +15,11 @@ namespace Scenes
 		/// <summary>
 		/// 未使用对象列表
 		/// </summary>
-		private List<ObjectPoolContainer<T>> _unUseList;
+		public List<ObjectPoolContainer<T>> UnUseList;
 		/// <summary>
 		/// 正在使用的对象字典
 		/// </summary>
-		private Dictionary<T, ObjectPoolContainer<T>> _userDict;
+		public Dictionary<T, ObjectPoolContainer<T>> UserDict;
 		/// <summary>
 		/// 返回指定对象
 		/// </summary>
@@ -28,6 +28,10 @@ namespace Scenes
 		/// 默认保持池子内数量 负数不保持
 		/// </summary>
 		public int HoldObject = -1;
+		/// <summary>
+		/// 池子Name
+		/// </summary>
+		public string PoolName = "";
 		
 		/// <summary>
 		/// 构造函数
@@ -39,8 +43,8 @@ namespace Scenes
 		{
 			_returnT = returnT;
 //			initSize = initSize < 0 ? 0 : initSize;
-			_unUseList = new List<ObjectPoolContainer<T>>();
-			_userDict = new Dictionary<T, ObjectPoolContainer<T>>();
+			UnUseList = new List<ObjectPoolContainer<T>>();
+			UserDict = new Dictionary<T, ObjectPoolContainer<T>>();
 //			CreateSpecifiedContainer(initSize);
 			//设置刷新时间
 			
@@ -66,7 +70,7 @@ namespace Scenes
 		{
 			var container = new ObjectPoolContainer<T>();
 			container.Item = _returnT();
-			_unUseList.Add(container);
+			UnUseList.Add(container);
 			return container;
 		}
 
@@ -77,9 +81,9 @@ namespace Scenes
 		public T Get()
 		{
 			ObjectPoolContainer<T> container = null;
-			if (_unUseList.Count>0)
+			if (UnUseList.Count>0)
 			{
-				container = _unUseList[0];
+				container = UnUseList[0];
 			}
 			else
 			{
@@ -87,8 +91,8 @@ namespace Scenes
 			}
 			
 			container.Consume();
-			_unUseList.Remove(container);
-			_userDict.Add(container.Item,container);
+			UnUseList.Remove(container);
+			UserDict.Add(container.Item,container);
 			return container.Item;
 		}
 
@@ -98,12 +102,12 @@ namespace Scenes
 		/// <param name="item"></param>
 		public void Release(T item)
 		{
-			if (_userDict.ContainsKey(item))
+			if (UserDict.ContainsKey(item))
 			{
-				var container = _userDict[item];
+				var container = UserDict[item];
 				container.Release();
-				_userDict.Remove(item);
-				_unUseList.Add(container);
+				UserDict.Remove(item);
+				UnUseList.Add(container);
 			}
 			else
 			{

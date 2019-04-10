@@ -30,18 +30,16 @@ namespace Scenes
 				return _instance;
 			}
 		}
-
-		private void Awake()
-		{
-			StartCoroutine(ClearObjectPool());
-			_objectIdDict = new Dictionary<int, ObjectPool<GameObject>>();
-			_objectPools = new Dictionary<GameObject, ObjectPool<GameObject>>();
-		}
+		
 
 		/// <summary>
 		/// 刷新清理时间 负数不清理
 		/// </summary>
-		public float RefreshTime = 5;
+		public float RefreshTime = 15;
+		/// <summary>
+		/// 对象池挂载
+		/// </summary>
+		private Transform _poolTransform;
 		/// <summary>
 		/// 生成物Id和对应池子
 		/// </summary>
@@ -50,6 +48,19 @@ namespace Scenes
 		/// 对象池子
 		/// </summary>
 		private Dictionary<GameObject, ObjectPool<GameObject>> _objectPools;
+		/// <summary>
+		/// 不活跃物体存放地点
+		/// </summary>
+		private Dictionary<string, GameObject> _unActiveTransform;
+		
+		private void Awake()
+		{
+			StartCoroutine(ClearObjectPool());
+			_objectIdDict = new Dictionary<int, ObjectPool<GameObject>>();
+			_objectPools = new Dictionary<GameObject, ObjectPool<GameObject>>();
+			_unActiveTransform = new Dictionary<string, GameObject>();
+			_poolTransform = GameObject.Find("PoolManager").transform;
+		}
 
 		/// <summary>
 		/// 拿到目标对象
@@ -94,6 +105,7 @@ namespace Scenes
 			if (!_objectPools.ContainsKey(prefab))
 			{
 				var pool = new ObjectPool<GameObject>(() => { return InstantiatePrefab(prefab); });
+				pool.PoolName = prefab.name;
 				_objectPools.Add(prefab,pool);
 			}
 			return _objectPools[prefab];
@@ -110,8 +122,21 @@ namespace Scenes
 			{
 				throw new Exception("不存在"+ prefab +"相关对象池");
 			}
+			//对象池
+			var value = _objectIdDict[prefab.GetInstanceID()];
+			//不活跃物体父节点
+			GameObject root = null;
+			if (!_unActiveTransform.ContainsKey(value.PoolName))
+			{
+				root = new GameObject(value.PoolName);
+				root.transform.SetParent(_poolTransform);
+				_unActiveTransform.Add(value.PoolName,root);
+			}
+			root = _unActiveTransform[value.PoolName];
 			prefab.gameObject.SetActive(false);
-			_objectIdDict[prefab.GetInstanceID()].Release(prefab);
+			prefab.transform.SetParent(root.transform);
+			value.Release(prefab);
+			_objectIdDict.Remove(prefab.GetInstanceID());
 		}
 		
 		
@@ -122,7 +147,7 @@ namespace Scenes
 		/// <returns></returns>
 		private GameObject InstantiatePrefab(GameObject prefab)
 		{
-			var go = Object.Instantiate(prefab);
+			var go = Instantiate(prefab);
 			return go;
 		}
 
@@ -134,7 +159,26 @@ namespace Scenes
 		{
 			while (true)
 			{
-//				print(111);
+//				if (_objectPools==null)
+//				{
+//					Debug.Log("不存在任何池子");
+//					continue;
+//				}
+//				foreach (KeyValuePair<GameObject,ObjectPool<GameObject>> pair in _objectPools)
+//				{
+//					if (pair.Value.UserDict.Count==0)
+//					{
+//						Debug.Log("该池子不活跃删除该池子");
+//						_objectPools.Remove(pair.Key);
+//						var root = _unActiveTransform[pair.Value.PoolName];
+//						if (root)
+//						{
+//							_unActiveTransform.Remove(pair.Value.PoolName);
+//							Destroy(root);
+//						}
+//					}
+//				}
+				Debug.Log("刷新了一下池子");
 				yield return new WaitForSeconds(RefreshTime);
 			}
 		}
