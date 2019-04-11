@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -37,6 +38,10 @@ namespace Scenes
 		/// </summary>
 		public float RefreshTime = 15;
 		/// <summary>
+		/// 刷新是否进行中
+		/// </summary>
+		private bool _isCoroutines = false;
+		/// <summary>
 		/// 对象池挂载
 		/// </summary>
 		private Transform _poolTransform;
@@ -55,7 +60,6 @@ namespace Scenes
 		
 		private void Awake()
 		{
-			StartCoroutine(ClearObjectPool());
 			_objectIdDict = new Dictionary<int, ObjectPool<GameObject>>();
 			_objectPools = new Dictionary<GameObject, ObjectPool<GameObject>>();
 			_unActiveTransform = new Dictionary<string, GameObject>();
@@ -75,6 +79,13 @@ namespace Scenes
 				_objectIdDict.Add(obj.GetInstanceID(),GetPool(prefab));				
 			}
 			obj.gameObject.SetActive(true);
+			//若设置刷新时间则开始刷新池子协程
+			if (RefreshTime>0&&!_isCoroutines)
+			{
+				_isCoroutines = true;
+				StartCoroutine("ClearObjectPool");
+				Debug.Log("ObjectPool:开始刷新，定时清除不活跃对象");
+			}
 			return obj;
 		}
 
@@ -159,26 +170,29 @@ namespace Scenes
 		{
 			while (true)
 			{
-//				if (_objectPools==null)
-//				{
-//					Debug.Log("不存在任何池子");
-//					continue;
-//				}
-//				foreach (KeyValuePair<GameObject,ObjectPool<GameObject>> pair in _objectPools)
-//				{
-//					if (pair.Value.UserDict.Count==0)
-//					{
-//						Debug.Log("该池子不活跃删除该池子");
-//						_objectPools.Remove(pair.Key);
-//						var root = _unActiveTransform[pair.Value.PoolName];
-//						if (root)
-//						{
-//							_unActiveTransform.Remove(pair.Value.PoolName);
-//							Destroy(root);
-//						}
-//					}
-//				}
-				Debug.Log("刷新了一下池子");
+				if (_objectPools.Count!=0)
+				{
+					foreach (var pair in _objectPools.ToList()) {
+						if (pair.Value.UserDict.Count==0&&pair.Value.UnUseList.Count>0)
+						{
+							Debug.Log("ObjectPool:"+pair.Key+"不活跃删除该池子");
+							var root = _unActiveTransform[pair.Value.PoolName];
+							if (root)
+							{
+								_unActiveTransform.Remove(pair.Value.PoolName);
+								Destroy(root);
+							}
+							_objectPools.Remove(pair.Key);
+						}
+
+						if (_objectPools.Count==0)
+						{
+							_isCoroutines = false;
+							StopCoroutine("ClearObjectPool");
+							Debug.Log("ObjectPool:清空池子，停止刷新");
+						}
+					}
+				}
 				yield return new WaitForSeconds(RefreshTime);
 			}
 		}
